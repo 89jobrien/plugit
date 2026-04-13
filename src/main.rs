@@ -22,15 +22,15 @@ enum Cmd {
     Stamp,
     /// Reinstall the plugin via the claude CLI
     Install {
-        /// Marketplace name to install from (default: "local")
-        #[arg(long, default_value = "local")]
-        marketplace: String,
+        /// Marketplace name to install from (default: plugin name from manifest)
+        #[arg(long)]
+        marketplace: Option<String>,
     },
     /// Full pre-push workflow: stamp + detect changes + conditional reinstall
     Push {
-        /// Marketplace name to install from (default: "local")
-        #[arg(long, default_value = "local")]
-        marketplace: String,
+        /// Marketplace name to install from (default: plugin name from manifest)
+        #[arg(long)]
+        marketplace: Option<String>,
         /// Directories that count as plugin sources, colon-separated
         #[arg(long, default_value = ".claude-plugin/:skills/:agents/:hooks/")]
         watch: String,
@@ -133,18 +133,21 @@ fn stamp(manifest_path: &Path) -> Result<String> {
 // install
 // ---------------------------------------------------------------------------
 
-fn install(manifest_path: &Path, marketplace: &str) -> Result<()> {
+fn install(manifest_path: &Path, marketplace: Option<&str>) -> Result<()> {
     let repo = repo_root(manifest_path);
     let raw = std::fs::read_to_string(manifest_path).context("reading manifest")?;
     let manifest: Manifest = serde_json::from_str(&raw).context("parsing manifest")?;
     let name = &manifest.name;
+    // Default marketplace to the plugin name — the standard `name@name` convention
+    let marketplace = marketplace.unwrap_or(name);
 
     let claude = which_claude()?;
 
     println!("[plugit] uninstalling {name}...");
+    // Ignore errors — plugin may not be installed yet
     let _ = Command::new(&claude)
         .current_dir(&repo)
-        .args(["plugin", "uninstall", name, "--force"])
+        .args(["plugin", "uninstall", name])
         .status();
 
     println!("[plugit] installing {name}@{marketplace}...");
@@ -177,7 +180,7 @@ fn which_claude() -> Result<String> {
 // push
 // ---------------------------------------------------------------------------
 
-fn push(manifest_path: &Path, marketplace: &str, watch_dirs: &[&str]) -> Result<()> {
+fn push(manifest_path: &Path, marketplace: Option<&str>, watch_dirs: &[&str]) -> Result<()> {
     let repo = repo_root(manifest_path);
 
     // 1. Stamp
@@ -225,11 +228,11 @@ fn main() -> Result<()> {
             stamp(&manifest)?;
         }
         Cmd::Install { marketplace } => {
-            install(&manifest, &marketplace)?;
+            install(&manifest, marketplace.as_deref())?;
         }
         Cmd::Push { marketplace, watch } => {
             let dirs: Vec<&str> = watch.split(':').collect();
-            push(&manifest, &marketplace, &dirs)?;
+            push(&manifest, marketplace.as_deref(), &dirs)?;
         }
     }
 
