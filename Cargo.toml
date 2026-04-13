@@ -2,5 +2,15 @@
 name = "plugit"
 version = "0.1.0"
 edition = "2024"
+description = "Claude Code plugin lifecycle tool — stamp version, detect changes, reinstall"
+license = "MIT"
+
+[[bin]]
+name = "plugit"
+path = "src/main.rs"
 
 [dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
